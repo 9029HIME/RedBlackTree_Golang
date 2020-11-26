@@ -16,5 +16,6 @@ func main() {
 	tree.Add(56)
 	time.Sleep(time.Second * 1)
 	tree.LDR(tree.root)
-	fmt.Println("根节点是",tree.root.Value)
+	fmt.Println("根节点是", tree.root.Value)
+	fmt.Println(tree.Get(56))
 }

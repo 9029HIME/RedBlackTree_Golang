@@ -70,9 +70,78 @@ import (
 */
 
 /**
+此方法用于删除数据后平衡
+*/
+func (tree *Tree) deleteBalance(node *TreeNode) {
+
+}
+
+func (tree *Tree) Delete(value int64) {
+	pendingBalance := tree.doDelete(value)
+	if pendingBalance == nil {
+		return
+	}
+	//真正的删除
+	tree.deleteBalance(pendingBalance)
+}
+
+/**
+找到真正要删除的节点
+*/
+func (tree *Tree) doDelete(value int64) *TreeNode {
+	//maybe nil
+	deletedNode := tree.Get(value)
+	hasLeftKid := deletedNode.LeftSon != nil
+	hasRightKid := deletedNode.RightSon != nil
+	if hasLeftKid && hasRightKid {
+		//寻找前继节点和后继 节点（优先找红色的）
+		pendingBalance := getLessAndBigger(deletedNode)
+		//互换值
+		temp := pendingBalance.Value
+		pendingBalance.Value = deletedNode.Value
+		deletedNode.Value = temp
+		return pendingBalance
+	}
+	return deletedNode
+}
+
+func getLessAndBigger(node *TreeNode) *TreeNode {
+	less := node.LeftSon
+	bigger := node.RightSon
+	for less.RightSon != nil {
+		less = less.RightSon
+	}
+	for bigger.LeftSon != nil {
+		bigger = bigger.LeftSon
+	}
+	//只要其中一个不是红色，直接返回另一个就好了
+	if less.IsBlack == false {
+		return less
+	} else {
+		return bigger
+	}
+}
+
+func (tree *Tree) Get(value int64) *TreeNode {
+	root := tree.root
+	for {
+		if root == nil {
+			return nil
+		} else if root.Value == value {
+			return root
+		} else if root.Value < value {
+			//应该在右节点寻找
+			root = root.RightSon
+		} else if root.Value > value {
+			root = root.LeftSon
+		}
+	}
+}
+
+/**
 此方法用于插入数据后平衡，需要在方法体内判断用哪种平衡方式
 */
-func (tree *Tree) Balance(node *TreeNode) {
+func (tree *Tree) addBalance(node *TreeNode) {
 	var L bool = false
 	var R bool = false
 	var RL bool = false
@@ -110,7 +179,7 @@ func (tree *Tree) Balance(node *TreeNode) {
 		father.IsBlack = true
 		grandFather.IsBlack = false
 		//将爷爷节点作为新增节点递归判断
-		tree.Balance(grandFather)
+		tree.addBalance(grandFather)
 		return
 	}
 	//8.
@@ -323,7 +392,7 @@ func (tree *Tree) LDR(root *TreeNode) {
 
 func (tree *Tree) Add(value int64) {
 	pendingBalance := tree.doAdd(value)
-	tree.Balance(pendingBalance)
+	tree.addBalance(pendingBalance)
 }
 
 func (tree *Tree) doAdd(value int64) *TreeNode {
