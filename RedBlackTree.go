@@ -47,33 +47,248 @@ import (
 	2.被删除节点为黑节点，且有单个叶子节点（黑色的删除2操作）：
 		删除2之后不需要做其他操作，TODO 注意平衡2情况不存在红节点，因为红黑树规定任一节点到其每个叶子的所有路径都包含相同数目的黑色节点
 	3.被删除节点为黑节点，且没有叶子节点（黑色的删除1操作）：
-		3.1 黑节点是左子节点，其兄弟节点也是黑色，兄弟节点的右子节点是红色：
+	done	3.1 黑节点是左子节点，其兄弟节点也是黑色，兄弟节点的右子节点是红色：
 			父节点与兄弟节点颜色互换，兄弟右子节点变为黑色，兄弟节点以父节点为圆心做左旋操作，删除黑节点
-		3.2 黑节点是左子节点，其兄弟节点也是黑色，兄弟节点的左子节点是红色：
+	done	3.2 黑节点是左子节点，其兄弟节点也是黑色，兄弟节点的左子节点是红色：
 			兄弟节点和兄弟左子节点颜色互换，兄弟左子节点以兄弟节点为圆心做右旋操作，此时情况会变成3.1，再按照3.1步骤平衡，删除黑节点
-		3.3 黑节点的兄弟节点是黑色，父节点是红色：
+			TODO 如果3.1和3.2同时存在，则优先按3.1处理
+	done	3.3 黑节点的兄弟节点是黑色，父节点是红色，且兄弟节点也是叶子节点：
 			兄弟节点与父节点互换颜色，删除黑节点，
-		3.4 黑节点是右子节点，其兄弟节点也是黑色，兄弟节点的左子节点是红色：
+	done	3.4 黑节点是右子节点，其兄弟节点也是黑色，兄弟节点的左子节点是红色：
 			父节点与兄弟节点颜色互换，兄弟左子节点变为黑色，兄弟节点以父节点为圆心做右旋操作，删除黑节点
-		3.5 黑节点是右子节点，其兄弟节点也是黑色，兄弟节点的右子节点是红色：
+	done	3.5 黑节点是右子节点，其兄弟节点也是黑色，兄弟节点的右子节点是红色：
 			兄弟节点和兄弟右子节点颜色互换，兄弟右子节点以兄弟节点为圆心做左旋操作，此时情况会变成3.4，再按照3.4步骤平衡，删除黑节点
-		3.6	兄弟节点和父亲节点都为黑节点：
-			兄弟节点设为红，删除黑节点，将父节点作为待删除节点进行递归判断，直到判断里的父节点为根节点
+			TODO 如果3.4和3.5同时存在，则优先按3.4处理
+		3.6	兄弟节点和父亲节点都为黑节点，且兄弟节点没有红子节点：
+			兄弟节点设为红，删除黑节点，将父节点作为待删除节点进行递归判断（此时不要管待删除节点是否有子节点了）
 			（TODO 注意！递归判断里不能删除待删除节点）
-		3.7 黑节点是左子节点，兄弟节点是红色：
+	done	3.7 黑节点是左子节点，兄弟节点是红色：
 			将父节点和兄弟节点颜色互换，兄弟节点以父节点为圆心做左旋操作，此时情况会变成3.3，再按3.3步骤操作，删除黑节点
-		3.8 黑节点是右子节点，兄弟节点是红色:
+	done	3.8 黑节点是右子节点，兄弟节点是红色:
 			将父节点和兄弟节点颜色互换，兄弟节点以父节点为圆心做右旋操作，此时情况会变成3.3，再按3.3步骤操作，删除黑节点
 
 
 
 */
 
+//先调整，最后返回要删除的节点（有可能递归调整但不删除）
+func (tree *Tree) balanceBeforeDelete(node *TreeNode) *TreeNode {
+	father := node.Father
+	var brother *TreeNode
+	if father.LeftSon == node {
+		brother = father.RightSon
+		if brother.RightSon != nil && brother.IsBlack == true && brother.RightSon.IsBlack == false {
+			//3.1
+			return tree.brotherBlackFarSonRed(node, true)
+		}
+		if brother.LeftSon != nil && brother.IsBlack == true && brother.LeftSon.IsBlack == false {
+			//3.2
+			pending := tree.brotherBlackNearSonRed(node, true)
+			//3.2 → 3.1
+			return tree.brotherBlackFarSonRed(pending, true)
+		}
+		//3.3
+		if brother.IsBlack == true && father.IsBlack == false {
+			return tree.brotherBlackFatherRed(node, true)
+		}
+		//3.7
+		if brother.IsBlack == false {
+			pending := tree.brotherRed(node, true)
+			//3.7 → 3.3
+			return tree.brotherBlackFatherRed(pending, true)
+		}
+		//3.6
+		if brother.IsBlack == true && father.IsBlack == true {
+			pending := tree.brotherBlackFatherBlack(node, false)
+			//直接将父节点作为待删除节点递归调整
+			tree.balanceBeforeDelete(pending.Father)
+			return pending
+		}
+	} else {
+		brother = father.LeftSon
+		if brother.LeftSon != nil && brother.IsBlack == true && brother.LeftSon.IsBlack == false {
+			//3.4
+			return tree.brotherBlackFarSonRed(node, false)
+		}
+		if brother.RightSon != nil && brother.IsBlack == true && brother.RightSon.IsBlack == false {
+			//3.5
+			pending := tree.brotherBlackNearSonRed(node, false)
+			//3.5 → 3.4
+			return tree.brotherBlackFarSonRed(pending, false)
+		}
+		//3.3
+		if brother.IsBlack == true && father.IsBlack == false {
+			return tree.brotherBlackFatherRed(node, false)
+		}
+		//3.8
+		if brother.IsBlack == false {
+			pending := tree.brotherRed(node, false)
+			// 3.8 → 3.3
+			return tree.brotherBlackFatherRed(pending, false)
+		}
+		//3.6
+		if brother.IsBlack == true && father.IsBlack == true {
+			pending := tree.brotherBlackFatherBlack(node, false)
+			//直接将父节点作为待删除节点递归判断
+			tree.balanceBeforeDelete(pending.Father)
+			return pending
+		}
+
+	}
+	return nil
+}
+
+//对应3.1、3.4情况
+func (tree *Tree) brotherBlackFarSonRed(node *TreeNode, isLeft bool) *TreeNode {
+	father := node.Father
+	fatherColor := father.IsBlack
+	if isLeft {
+		//3.1
+		brother := father.RightSon
+		father.IsBlack = brother.IsBlack
+		brother.IsBlack = fatherColor
+		brother.RightSon.IsBlack = true
+		//兄弟节点绕父节点左旋
+		tree.Left(brother.RightSon)
+	} else {
+		brother := father.LeftSon
+		father.IsBlack = brother.IsBlack
+		brother.IsBlack = fatherColor
+		brother.LeftSon.IsBlack = true
+		//兄弟节点绕父节点右旋
+		tree.Right(brother.LeftSon)
+	}
+	return node
+}
+
 /**
-此方法用于删除数据后平衡
+对应3.2、3.5情况
+isLeft:待删除节点是否为左子节点
+*/
+func (tree *Tree) brotherBlackNearSonRed(node *TreeNode, isLeft bool) *TreeNode {
+	father := node.Father
+	var brotherColor bool
+	//3.2
+	if isLeft {
+		brother := father.RightSon
+		brotherColor = brother.IsBlack
+		son := brother.LeftSon
+		brother.IsBlack = son.IsBlack
+		son.IsBlack = brotherColor
+		//这个右旋比较特殊，是直接将左子节点右旋过去，下面写的Right()是基于左子节点的子节点进行判断，在这里使用有可能NPE
+		//注意父节点与祖父节点是否对应上了，不然会死循环
+		tree.FatherRight(son)
+	} else {
+		//3.5
+		brother := father.LeftSon
+		brotherColor = brother.IsBlack
+		son := brother.RightSon
+		brother.IsBlack = son.IsBlack
+		son.IsBlack = brotherColor
+		//这个左旋比较特殊，是直接将右子节点右旋过去，下面写的Left()是基于右子节点的子节点进行判断，在这里使用有可能NPE
+		//注意父节点与祖父节点是否对应上了，不然会死循环
+		tree.FatherLeft(son)
+	}
+	return node
+}
+
+//对应3.3，兄弟黑父亲红
+//兄弟节点与父节点互换颜色
+func (tree *Tree) brotherBlackFatherRed(node *TreeNode, isLeft bool) *TreeNode {
+	var brother *TreeNode
+	father := node.Father
+	if isLeft {
+		brother = father.RightSon
+	} else {
+		brother = father.LeftSon
+	}
+	father.IsBlack = true
+	brother.IsBlack = false
+	return node
+}
+
+//对应3.7，3.8
+func (tree *Tree) brotherRed(node *TreeNode, isLeft bool) *TreeNode {
+	father := node.Father
+	var brother *TreeNode
+	if isLeft {
+		brother = father.RightSon
+		brother.IsBlack = father.IsBlack
+		father.IsBlack = false
+		tree.FatherLeft(brother)
+		return node
+	} else {
+		brother = father.LeftSon
+		brother.IsBlack = father.IsBlack
+		father.IsBlack = false
+		tree.FatherRight(brother)
+		return node
+	}
+}
+
+//对应3.6
+func (tree *Tree) brotherBlackFatherBlack(node *TreeNode, isLeft bool) *TreeNode {
+	father := node.Father
+	var brother *TreeNode
+	if isLeft {
+		brother = father.RightSon
+	} else {
+		brother = father.LeftSon
+	}
+	brother.IsBlack = false
+	return node
+}
+
+/**
+此方法用于删除数据的平衡
 */
 func (tree *Tree) deleteBalance(node *TreeNode) {
+	//平衡分3种：1.直接删除、2：删除后平衡、3：平衡后删除
+	hasLeftKid := node.LeftSon != nil
+	hasRightKid := node.RightSon != nil
+	if !hasLeftKid && !hasRightKid {
+		if !node.IsBlack {
+			tree.deleteDirectly(node)
+		} else {
+			//TODO balanceBeforeDelete
+			pending := tree.balanceBeforeDelete(node)
+			tree.deleteDirectly(pending)
+		}
+	} else if hasLeftKid || hasRightKid {
+		tree.deleteBeforeBalance(node)
+	}
+}
 
+//适合情况：删除一个红叶子节点
+func (tree *Tree) deleteDirectly(node *TreeNode) {
+	father := node.Father
+	if father.LeftSon == node {
+		father.LeftSon = nil
+	} else {
+		father.RightSon = nil
+	}
+	node.Father = nil
+}
+
+//适合情况：删除只有单个叶子节点的黑节点
+func (tree *Tree) deleteBeforeBalance(node *TreeNode) {
+	var son *TreeNode
+	father := node.Father
+	if node.LeftSon != nil {
+		son = node.LeftSon
+	} else {
+		son = node.RightSon
+	}
+	if father.LeftSon == node {
+		father.LeftSon = son
+	} else {
+		father.RightSon = son
+	}
+	son.Father = father
+	node.Father = nil
+	node.LeftSon = nil
+	node.RightSon = nil
+	son.IsBlack = true
 }
 
 func (tree *Tree) Delete(value int64) {
@@ -81,6 +296,7 @@ func (tree *Tree) Delete(value int64) {
 	if pendingBalance == nil {
 		return
 	}
+	log.Printf("真正要删除的节点：%v\n", pendingBalance)
 	//真正的删除
 	tree.deleteBalance(pendingBalance)
 }
@@ -91,11 +307,15 @@ func (tree *Tree) Delete(value int64) {
 func (tree *Tree) doDelete(value int64) *TreeNode {
 	//maybe nil
 	deletedNode := tree.Get(value)
+	if deletedNode == nil {
+		return nil
+	}
 	hasLeftKid := deletedNode.LeftSon != nil
 	hasRightKid := deletedNode.RightSon != nil
 	if hasLeftKid && hasRightKid {
 		//寻找前继节点和后继 节点（优先找红色的）
 		pendingBalance := getLessAndBigger(deletedNode)
+		log.Printf("找到了颜色为%v的替代节点，值是%v\n", pendingBalance.IsBlack, pendingBalance.Value)
 		//互换值
 		temp := pendingBalance.Value
 		pendingBalance.Value = deletedNode.Value
@@ -209,6 +429,7 @@ func (tree *Tree) addBalance(node *TreeNode) {
 	log.Println("父节点为黑，直接插入")
 }
 
+//以插入节点为主观视觉进行父节点左旋
 func (tree *Tree) Left(node *TreeNode) {
 	/**
 	左旋（插入节点为右树右节点时）:
@@ -245,6 +466,7 @@ func (tree *Tree) Left(node *TreeNode) {
 
 }
 
+//以插入节点为主观视觉进行父节点右旋
 func (tree *Tree) Right(node *TreeNode) {
 	/**
 	右旋（插入节点为左树左节点时）：
@@ -278,6 +500,66 @@ func (tree *Tree) Right(node *TreeNode) {
 
 	father.IsBlack = true
 	grandFather.IsBlack = false
+}
+
+//以旋转节点为主观视觉进行自身左旋
+func (tree *Tree) FatherLeft(node *TreeNode) {
+	//左旋，说明是右子节点
+	father := node.Father
+	brother := father.LeftSon
+	grandFather := node.GrandFather
+	leftSon := node.LeftSon
+	rightSon := node.RightSon
+	//圆点：node 圆心：father
+	node.LeftSon = father
+	father.Father = node
+	father.GrandFather = grandFather
+	father.RightSon = leftSon
+
+	node.Father = grandFather
+	grandFather.LeftSon = node
+	node.GrandFather = grandFather.Father
+
+	if brother != nil {
+		brother.GrandFather = node
+	}
+	if rightSon != nil {
+		rightSon.GrandFather = grandFather
+	}
+	if leftSon != nil {
+		leftSon.Father = father
+		leftSon.GrandFather = node
+	}
+}
+
+//以旋转节点为主观视觉进行自身右旋
+func (tree *Tree) FatherRight(node *TreeNode) {
+	//右旋，说明是左子节点
+	father := node.Father
+	brother := father.RightSon
+	grandFather := node.GrandFather
+	leftSon := node.LeftSon
+	rightSon := node.RightSon
+	//圆点：node 圆心：father
+	node.RightSon = father
+	father.Father = node
+	father.GrandFather = grandFather
+	father.LeftSon = rightSon
+
+	node.Father = grandFather
+	grandFather.RightSon = node
+	node.GrandFather = grandFather.Father
+
+	if brother != nil {
+		brother.GrandFather = node
+	}
+	if leftSon != nil {
+		leftSon.GrandFather = grandFather
+	}
+	if rightSon != nil {
+		rightSon.Father = father
+		rightSon.GrandFather = node
+	}
 }
 
 func (tree *Tree) LeftRight(node *TreeNode) {
